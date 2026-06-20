@@ -8,7 +8,10 @@ df = pd.read_csv("data/processed/matches_with_features.csv")
 df['date'] = pd.to_datetime(df['date'])
 
 # --- Select features and target ---
-feature_cols = ['home_recent_form', 'away_recent_form', 'h2h_home_win_rate', 'neutral']
+feature_cols = [
+    'home_recent_form', 'away_recent_form', 'h2h_home_win_rate', 'neutral',
+    'form_diff', 'home_goal_diff_avg', 'away_goal_diff_avg', 'h2h_matches_played'
+]
 target_col = 'result'
 
 # Drop rows with missing feature values (mostly early matches with no history yet)
@@ -51,3 +54,49 @@ print(f"Accuracy: {accuracy_score(y_test, y_pred):.3f}")
 print(f"Log Loss: {log_loss(y_test, y_pred_proba):.3f}")
 print("\nClassification Report:")
 print(classification_report(y_test, y_pred, target_names=le.classes_))
+
+from sklearn.ensemble import RandomForestClassifier
+
+# --- Random Forest (comparison model) ---
+rf_model = RandomForestClassifier(
+    n_estimators=300,
+    max_depth=6,
+    random_state=42
+)
+rf_model.fit(X_train, y_train)
+
+rf_pred = rf_model.predict(X_test)
+rf_pred_proba = rf_model.predict_proba(X_test)
+
+print("\n\n=== Random Forest Results ===")
+print(f"Accuracy: {accuracy_score(y_test, rf_pred):.3f}")
+print(f"Log Loss: {log_loss(y_test, rf_pred_proba):.3f}")
+print("\nClassification Report:")
+print(classification_report(y_test, rf_pred, target_names=le.classes_))
+
+# --- Feature importance ---
+print("\nFeature importance:")
+importance_df = pd.DataFrame({
+    'feature': feature_cols,
+    'importance': rf_model.feature_importances_
+}).sort_values('importance', ascending=False)
+print(importance_df)
+
+from sklearn.ensemble import HistGradientBoostingClassifier
+
+# --- Gradient Boosting (typically strongest on tabular data) ---
+gb_model = HistGradientBoostingClassifier(
+    max_iter=300,
+    max_depth=6,
+    random_state=42
+)
+gb_model.fit(X_train, y_train)
+
+gb_pred = gb_model.predict(X_test)
+gb_pred_proba = gb_model.predict_proba(X_test)
+
+print("\n\n=== Gradient Boosting Results ===")
+print(f"Accuracy: {accuracy_score(y_test, gb_pred):.3f}")
+print(f"Log Loss: {log_loss(y_test, gb_pred_proba):.3f}")
+print("\nClassification Report:")
+print(classification_report(y_test, gb_pred, target_names=le.classes_))

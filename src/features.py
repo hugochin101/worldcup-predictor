@@ -17,7 +17,6 @@ print(f"Removed {before_count - after_count} unplayed/future fixtures")
 print(f"Remaining matches: {after_count}")
 
 # --- Target variable: result from the HOME team's perspective ---
-# (vectorized version - much faster than .apply() on large datasets)
 df['result'] = np.select(
     [df['home_score'] > df['away_score'], df['home_score'] < df['away_score']],
     ['home_win', 'away_win'],
@@ -45,7 +44,6 @@ team_games = pd.concat([
 ])
 team_games = team_games.sort_values(['team', 'date']).reset_index(drop=True)
 
-# shift(1) excludes the current match itself - only past results count
 team_games['recent_form'] = (
     team_games.groupby('team')['points']
     .transform(lambda x: x.rolling(window=5, min_periods=1).mean().shift(1))
@@ -101,6 +99,50 @@ print(df[final_cols].tail(10))
 print("\nFinal shape:", df.shape)
 print("\nMissing values per feature column:")
 print(df[['home_recent_form', 'away_recent_form', 'h2h_home_win_rate']].isna().sum())
+
+# --- Additional features: closeness, goal difference, h2h match count ---
+
+# Form difference: captures how evenly matched the two teams are
+df['form_diff'] = df['home_recent_form'] - df['away_recent_form']
+
+# Goal difference average, per team (similar logic to recent_form)
+home_goal_diff = df[['date', 'home_team']].copy()
+home_goal_diff['team'] = home_goal_diff['home_team']
+home_goal_diff['goal_diff'] = df['home_score'] - df['away_score']
+
+away_goal_diff = df[['date', 'away_team']].copy()
+away_goal_diff['team'] = away_goal_diff['away_team']
+away_goal_diff['goal_diff'] = df['away_score'] - df['home_score']
+
+team_goal_diffs = pd.concat([
+    home_goal_diff[['date', 'team', 'goal_diff']],
+    away_goal_diff[['date', 'team', 'goal_diff']]
+])
+team_goal_diffs = team_goal_diffs.sort_values(['team', 'date']).reset_index(drop=True)
+
+team_goal_diffs['goal_diff_avg'] = (
+    team_goal_diffs.groupby('team')['goal_diff']
+    .transform(lambda x: x.rolling(window=5, min_periods=1).mean().shift(1))
+)
+
+gd_lookup = team_goal_diffs[['date', 'team', 'goal_diff_avg']].copy()
+
+df = df.merge(
+    gd_lookup.rename(columns={'team': 'home_team', 'goal_diff_avg': 'home_goal_diff_avg'}),
+    on=['date', 'home_team'], how='left'
+)
+df = df.merge(
+    gd_lookup.rename(columns={'team': 'away_team', 'goal_diff_avg': 'away_goal_diff_avg'}),
+    on=['date', 'away_team'], how='left'
+)
+
+# How many times have these two teams played before (any venue)?
+df['h2h_matches_played'] = (
+    df.groupby('matchup').cumcount()
+)
+
+print("\nNew features added: form_diff, home_goal_diff_avg, away_goal_diff_avg, h2h_matches_played")
+print(df[['form_diff', 'home_goal_diff_avg', 'away_goal_diff_avg', 'h2h_matches_played']].describe())
 
 # --- Save processed data for the next step (model training) ---
 df.to_csv("data/processed/matches_with_features.csv", index=False)
