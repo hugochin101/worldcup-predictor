@@ -1,15 +1,10 @@
 import sqlite3
 import pandas as pd
 
-# --- Connect to (or create) the database file ---
-# This creates a single file: worldcup.db, right in your project folder
 conn = sqlite3.connect("data/worldcup.db")
 cursor = conn.cursor()
 
-# --- Define the matches table schema ---
-# DROP TABLE first so this script is safely re-runnable during development
 cursor.execute("DROP TABLE IF EXISTS matches")
-
 cursor.execute("""
 CREATE TABLE matches (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,25 +19,30 @@ CREATE TABLE matches (
     neutral INTEGER
 )
 """)
-
 print("Created 'matches' table")
 
-# --- Load the raw CSV and insert it into the database ---
+cursor.execute("DROP TABLE IF EXISTS predictions")
+cursor.execute("""
+CREATE TABLE predictions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT NOT NULL,
+    home_team TEXT NOT NULL,
+    away_team TEXT NOT NULL,
+    predicted_home_win_prob REAL,
+    predicted_draw_prob REAL,
+    predicted_away_win_prob REAL
+)
+""")
+print("Created 'predictions' table")
+
 df = pd.read_csv("data/raw/results.csv")
-
 df.to_sql("matches", conn, if_exists="append", index=False)
-
 print(f"Inserted {len(df)} rows into matches table")
 
-# --- Verify with a simple SQL query ---
 cursor.execute("SELECT COUNT(*) FROM matches")
-count = cursor.fetchone()[0]
-print(f"\nVerification - total rows in database: {count}")
-
-cursor.execute("SELECT date, home_team, away_team, home_score, away_score FROM matches LIMIT 5")
-print("\nSample rows:")
-for row in cursor.fetchall():
-    print(row)
+print(f"\nVerification - total rows in matches table: {cursor.fetchone()[0]}")
+cursor.execute("SELECT COUNT(*) FROM predictions")
+print(f"Verification - total rows in predictions table: {cursor.fetchone()[0]}")
 
 conn.commit()
 conn.close()
