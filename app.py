@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
+import sqlite3
+from datetime import datetime
 
 st.set_page_config(page_title="World Cup Predictor", page_icon="⚽", layout="centered")
 
@@ -76,6 +78,19 @@ def build_match_features(home_team, away_team, df, neutral=True):
     }])
     return features[feature_cols]
 
+def log_prediction(home_team, away_team, prob_dict):
+    """Logs a prediction to the SQLite database."""
+    conn = sqlite3.connect("data/worldcup.db")
+    conn.execute(
+        """INSERT INTO predictions
+           (timestamp, home_team, away_team, predicted_home_win_prob, predicted_draw_prob, predicted_away_win_prob)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (datetime.now().isoformat(), home_team, away_team,
+         prob_dict['home_win'], prob_dict['draw'], prob_dict['away_win'])
+    )
+    conn.commit()
+    conn.close()
+
 # --- UI ---
 st.title("⚽ World Cup Match Predictor")
 st.caption("Machine learning predictions for international football, trained on 47,000+ historical matches since 1872")
@@ -109,6 +124,8 @@ if st.button("Predict Outcome", type="primary"):
         features = build_match_features(team_a, team_b, df)
         probs = model.predict_proba(features)[0]
         prob_dict = dict(zip(class_order, probs))
+
+        log_prediction(team_a, team_b, prob_dict)
 
         st.subheader("Prediction")
         c1, c2, c3 = st.columns(3)
