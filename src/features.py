@@ -3,7 +3,11 @@ import numpy as np
 
 # --- Load and clean ---
 
-df = pd.read_csv("data/raw/results.csv")
+import sqlite3
+
+conn = sqlite3.connect("data/worldcup.db")
+df = pd.read_sql_query("SELECT * FROM matches", conn)
+conn.close()
 df['date'] = pd.to_datetime(df['date'])
 df = df.sort_values('date').reset_index(drop=True)
 
