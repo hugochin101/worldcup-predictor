@@ -29,7 +29,7 @@ feature_cols = [
 
 teams = sorted(set(df['home_team'].unique()) | set(df['away_team'].unique()))
 
-# --- Helper functions (same logic as simulate_tournament.py) ---
+# --- Helper functions ---
 def get_latest_team_stats(team_name, df):
     home_matches = df[df['home_team'] == team_name].sort_values('date')
     away_matches = df[df['away_team'] == team_name].sort_values('date')
@@ -78,7 +78,25 @@ def build_match_features(home_team, away_team, df, neutral=True):
 
 # --- UI ---
 st.title("⚽ World Cup Match Predictor")
-st.write("Pick two national teams to predict the outcome, based on a model trained on 47,000+ international matches.")
+st.caption("Machine learning predictions for international football, trained on 47,000+ historical matches since 1872")
+
+with st.expander("ℹ️ How this works", expanded=False):
+    st.markdown("""
+    This model uses **Gradient Boosting**, trained on historical international match data,
+    with features including:
+    - Recent form (last 5 matches per team)
+    - Head-to-head historical record
+    - Recent goal difference average
+    - Venue (neutral vs. home advantage)
+
+    **Backtested accuracy:** 55.7% on a held-out test set (baseline random guess: 33% for 3 outcomes).
+    When tested specifically against the real 2022 World Cup, the model correctly predicted 22/47 (46.8%)
+    of matches it had never seen during training.
+
+    [View the full project on GitHub](https://github.com/hugochin101/worldcup-predictor)
+    """)
+
+st.divider()
 
 col1, col2 = st.columns(2)
 team_a = col1.selectbox("Home Team", teams, index=teams.index("Brazil") if "Brazil" in teams else 0)
